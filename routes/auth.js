@@ -1,7 +1,48 @@
 "use strict";
 
 const express = require("express");
+const { OAuth2Client } = require("google-auth-library");
+
 const router = express.Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+router.post("/google/login", async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        ok: false,
+        message: "Missing Google credential"
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+
+    const user = {
+      provider: "google",
+      id: payload.sub,
+      name: payload.name || "",
+      email: payload.email || "",
+      picture: payload.picture || ""
+    };
+
+    req.session.user = user;
+
+    res.json({ ok: true, user });
+  } catch (err) {
+    console.error("Google login error:", err.message);
+    res.status(401).json({
+      ok: false,
+      message: "Google authentication failed"
+    });
+  }
+});
 
 function buildReturnUrl(returnTo, params) {
   const url = new URL(returnTo);
@@ -13,32 +54,6 @@ function buildReturnUrl(returnTo, params) {
   return url.toString();
 }
 
-/* =========================================================
-   TEST LOGIN: GOOGLE
-   ========================================================= */
-router.get("/google/start", (req, res) => {
-  const returnTo = req.query.returnTo || "https://www.jesusww.com/";
-
-  req.session.user = {
-    provider: "google",
-    name: "Test Google User",
-    email: "google@test.com"
-  };
-
-  const redirectUrl = buildReturnUrl(returnTo, {
-    auth_provider: "google",
-    auth_name: "Test Google User",
-    auth_email: "google@test.com",
-    auth_token: "123"
-  });
-
-  console.log("Google redirecting to:", redirectUrl);
-  res.redirect(redirectUrl);
-});
-
-/* =========================================================
-   TEST LOGIN: MICROSOFT
-   ========================================================= */
 router.get("/microsoft/start", (req, res) => {
   const returnTo = req.query.returnTo || "https://www.jesusww.com/";
 
@@ -55,20 +70,13 @@ router.get("/microsoft/start", (req, res) => {
     auth_token: "123"
   });
 
-  console.log("Microsoft redirecting to:", redirectUrl);
   res.redirect(redirectUrl);
 });
 
-/* =========================================================
-   APPLE PLACEHOLDER
-   ========================================================= */
 router.get("/apple/start", (req, res) => {
   res.status(501).send("Apple login not connected yet.");
 });
 
-/* =========================================================
-   LOGOUT
-   ========================================================= */
 router.post("/logout", (req, res) => {
   req.session.destroy(() => {
     res.clearCookie("jw.sid");
