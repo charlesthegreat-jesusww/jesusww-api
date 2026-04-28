@@ -137,16 +137,12 @@ router.get("/microsoft/callback", async (req, res) => {
 
     const decodedUser = await new Promise((resolve, reject) => {
       jwt.verify(
-        tokenData.id_token,
-        getMicrosoftSigningKey,
-        {
-          audience: process.env.MICROSOFT_CLIENT_ID,
-          issuer: [
-            "https://login.microsoftonline.com/common/v2.0",
-            `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID || "common"}/v2.0`
-          ],
-          algorithms: ["RS256"]
-        },
+  tokenData.id_token,
+  getMicrosoftSigningKey,
+  {
+    audience: process.env.MICROSOFT_CLIENT_ID,
+    algorithms: ["RS256"]
+  },
         (err, decoded) => {
           if (err) reject(err);
           else resolve(decoded);
